@@ -1,26 +1,26 @@
 import React from 'react';
-import { Erors, Todo } from '../../types/Todo';
+import { TodoError, Todo } from '../../types/Todo';
 import { TodoItem } from '../TodoItem';
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
 
 type Props = {
   visibleTodos: Todo[];
   tempTodo: Todo | null;
-  deletingTodoId: number[] | null;
   removeTodo: (id: number) => void;
   complateTodo: (todo: Todo) => void;
-  setDeletingTodoId: (id: number[] | null) => void;
+  setLoadingTodoId: (id: number[] | null) => void;
+  loadingTodoId: number[] | null;
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
-  showError: (error: Erors) => void;
+  showError: (error: TodoError) => void;
 };
 
 export const TodoList: React.FC<Props> = ({
   visibleTodos,
   tempTodo,
-  deletingTodoId,
   removeTodo,
   complateTodo,
-  setDeletingTodoId,
+  setLoadingTodoId,
+  loadingTodoId,
   setTodos,
   showError,
 }) => {
@@ -34,8 +34,8 @@ export const TodoList: React.FC<Props> = ({
               todoItem,
               removeTodo,
               complateTodo,
-              deletingTodoId,
-              setDeletingTodoId,
+              setLoadingTodoId,
+              isLoading: loadingTodoId?.includes(todoItem.id) || false,
               showError,
               setTodos,
             }}
@@ -49,8 +49,7 @@ export const TodoList: React.FC<Props> = ({
               todoItem: tempTodo,
               removeTodo,
               complateTodo,
-              deletingTodoId,
-              isTemp: true,
+              isLoading: true,
             }}
           />
         </CSSTransition>

@@ -1,19 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
+import { TodoError } from '../../types/Todo';
 
 type Props = {
-  anyExistingError: boolean;
   clearError: () => void;
-  loadingError: {
-    todosError: boolean;
-    queryError: boolean;
-    addError: boolean;
-    deleteError: boolean;
-    updateError: boolean;
-  };
+  loadingError: TodoError | '';
 };
 export const ErrorNotification: React.FC<Props> = ({
-  anyExistingError,
   clearError,
   loadingError,
 }) => {
@@ -25,40 +18,40 @@ export const ErrorNotification: React.FC<Props> = ({
         'is-danger',
         'is-light',
         'has-text-weight-normal',
-        { hidden: !anyExistingError },
+        { hidden: !loadingError },
       )}
     >
       <button
         data-cy="HideErrorButton"
         type="button"
-        className={clsx('delete')}
+        className="delete"
         onClick={clearError}
       />
-      {loadingError.todosError && (
+      {loadingError === TodoError.TodosError && (
         <>
           Unable to load todos
           <br />
         </>
       )}
-      {loadingError.queryError && (
+      {loadingError === TodoError.QueryError && (
         <>
           Title should not be empty
           <br />
         </>
       )}
-      {loadingError.addError && (
+      {loadingError === TodoError.AddError && (
         <>
           Unable to add a todo
           <br />
         </>
       )}
-      {loadingError.deleteError && (
+      {loadingError === TodoError.DeleteError && (
         <>
           Unable to delete a todo
           <br />
         </>
       )}
-      {loadingError.updateError && 'Unable to update a todo'}
+      {loadingError === TodoError.UpdateError && 'Unable to update a todo'}
     </div>
   );
 };

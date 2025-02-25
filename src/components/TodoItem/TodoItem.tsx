@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { useEffect, useRef, useState } from 'react';
-import { Erors, Todo } from '../../types/Todo';
+import { TodoError, Todo } from '../../types/Todo';
 import clsx from 'clsx';
 import { updateTodo } from '../../api/todos';
 
@@ -8,22 +8,20 @@ type Props = {
   todoItem: Todo;
   removeTodo: (id: number) => void;
   complateTodo: (todo: Todo) => void;
-  deletingTodoId: number[] | null;
-  setDeletingTodoId?: (id: number[] | null) => void;
+  setLoadingTodoId?: (id: number[] | null) => void;
   setTodos?: React.Dispatch<React.SetStateAction<Todo[]>>;
-  showError?: (error: Erors) => void;
-  isTemp?: boolean;
+  showError?: (TodoError: TodoError) => void;
+  isLoading: boolean;
 };
 
 export const TodoItem: React.FC<Props> = ({
   todoItem,
   removeTodo,
   complateTodo,
-  deletingTodoId,
-  setDeletingTodoId = () => {},
+  setLoadingTodoId = () => {},
   setTodos = () => {},
   showError = () => {},
-  isTemp = false,
+  isLoading,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(todoItem.title);
@@ -62,7 +60,7 @@ export const TodoItem: React.FC<Props> = ({
       return;
     }
 
-    setDeletingTodoId([todoItem.id]);
+    setLoadingTodoId([todoItem.id]);
     setTodos(prevTodos =>
       prevTodos.map((item: Todo) =>
         item.id === todoItem.id ? { ...item, title } : item,
@@ -76,7 +74,9 @@ export const TodoItem: React.FC<Props> = ({
       });
 
       if (!response || !response.title) {
-        throw new Error('Failed to update todo title');
+        showError(TodoError.UpdateError);
+
+        return;
       }
 
       setTodos((prevTodos: Todo[]) =>
@@ -86,9 +86,9 @@ export const TodoItem: React.FC<Props> = ({
       );
       setIsEditing(false);
     } catch {
-      showError(Erors.UpdateError);
+      showError(TodoError.UpdateError);
     } finally {
-      setDeletingTodoId(null);
+      setLoadingTodoId(null);
     }
   };
 
@@ -157,7 +157,7 @@ export const TodoItem: React.FC<Props> = ({
       <div
         data-cy="TodoLoader"
         className={clsx('modal', 'overlay', {
-          'is-active': isTemp || deletingTodoId?.includes(todoItem.id),
+          'is-active': isLoading,
         })}
       >
         <div className="modal-background has-background-white-ter" />

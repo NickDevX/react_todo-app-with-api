@@ -15,7 +15,7 @@ import {
   updateTodo,
   USER_ID,
 } from './api/todos';
-import { Todo, Filter, Erors } from './types/Todo';
+import { Todo, Filter, TodoError } from './types/Todo';
 import { Header } from './components/Header';
 import { TodoList } from './components/TodoList';
 import { Footer } from './components/Footer';
@@ -26,23 +26,10 @@ export const App: React.FC = () => {
   const hideErrorTimer = useRef<number | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
-  const [deletingTodoId, setDeletingTodoId] = useState<number[] | null>(null);
+  const [loadingTodoId, setLoadingTodoId] = useState<number[] | null>(null);
   const [filter, setFilter] = useState(Filter.All);
   const [title, setTitle] = useState('');
-  const [loadingError, setLoadingError] = useState({
-    queryError: false,
-    addError: false,
-    todosError: false,
-    deleteError: false,
-    updateError: false,
-  });
-
-  const anyExistingError =
-    loadingError.queryError ||
-    loadingError.addError ||
-    loadingError.todosError ||
-    loadingError.deleteError ||
-    loadingError.updateError;
+  const [loadingError, setLoadingError] = useState<TodoError | ''>('');
 
   const focusInput = () => (input.current ? input.current.focus() : null);
 
@@ -52,45 +39,31 @@ export const App: React.FC = () => {
       hideErrorTimer.current = null;
     }
 
-    setLoadingError({
-      queryError: false,
-      addError: false,
-      todosError: false,
-      deleteError: false,
-      updateError: false,
-    });
+    setLoadingError('');
   }, []);
 
   const showError = useCallback(
-    (errorType: Erors) => {
-      if (hideErrorTimer.current) {
-        clearTimeout(hideErrorTimer.current);
-      }
+    (error: TodoError) => {
+      clearError();
+      setLoadingError(error);
 
-      setLoadingError(prev => ({ ...prev, [errorType]: true }));
       hideErrorTimer.current = window.setTimeout(() => {
         clearError();
-        hideErrorTimer.current = null;
       }, 3000);
     },
     [clearError],
   );
 
-  const filterTodos = useCallback((todosList: Todo[], filterBy: string) => {
-    switch (filterBy) {
+  const visibleTodos = useMemo(() => {
+    switch (filter) {
       case Filter.Active:
-        return todosList.filter(item => !item.completed);
+        return todos.filter(item => !item.completed);
       case Filter.Completed:
-        return todosList.filter(item => item.completed);
+        return todos.filter(item => item.completed);
       default:
-        return todosList;
+        return todos;
     }
-  }, []);
-
-  const visibleTodos = useMemo(
-    () => filterTodos(todos, filter),
-    [todos, filter, filterTodos],
-  );
+  }, [todos, filter]);
 
   const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(event.target.value);
@@ -105,7 +78,7 @@ export const App: React.FC = () => {
   };
 
   const complateTodo = (todo: Todo) => {
-    setDeletingTodoId([todo.id]);
+    setLoadingTodoId([todo.id]);
 
     const complateTodoFromServer = async () => {
       try {
@@ -115,7 +88,9 @@ export const App: React.FC = () => {
         });
 
         if (!response) {
-          throw new Error('Failed to update todo');
+          showError(TodoError.UpdateError);
+
+          return;
         }
 
         setTodos(prevTodos =>
@@ -126,9 +101,9 @@ export const App: React.FC = () => {
           ),
         );
       } catch {
-        showError(Erors.UpdateError);
+        showError(TodoError.UpdateError);
       } finally {
-        setDeletingTodoId(null);
+        setLoadingTodoId(null);
       }
     };
 
@@ -149,7 +124,7 @@ export const App: React.FC = () => {
 
       const updatingIds = todosToUpdate.map(todo => todo.id);
 
-      setDeletingTodoId(updatingIds);
+      setLoadingTodoId(updatingIds);
 
       try {
         const requests = todosToUpdate.map(todo =>
@@ -180,12 +155,14 @@ export const App: React.FC = () => {
         );
 
         if (results.some(todo => todo.status === 'rejected')) {
-          throw new Error();
+          showError(TodoError.UpdateError);
+
+          return;
         }
       } catch {
-        showError(Erors.UpdateError);
+        showError(TodoError.UpdateError);
       } finally {
-        setDeletingTodoId(null);
+        setLoadingTodoId(null);
       }
     };
 
@@ -193,20 +170,22 @@ export const App: React.FC = () => {
   };
 
   const removeTodo = (id: number) => {
-    setDeletingTodoId([id]);
+    setLoadingTodoId([id]);
     const removeTodoFromServer = async () => {
       try {
         const response = (await deleteTodo(id)) as number;
 
         if (response !== 1) {
-          throw new Error();
+          showError(TodoError.DeleteError);
+
+          return;
         }
 
         setTodos(prev => prev.filter(item => item.id !== id));
       } catch {
-        showError(Erors.DeleteError);
+        showError(TodoError.DeleteError);
       } finally {
-        setDeletingTodoId(null);
+        setLoadingTodoId(null);
         focusInput();
       }
     };
@@ -219,7 +198,7 @@ export const App: React.FC = () => {
       .filter(item => item.completed)
       .map(item => item.id);
 
-    setDeletingTodoId(completedIds);
+    setLoadingTodoId(completedIds);
     const removeTodoFromServer = async () => {
       try {
         const response = completedIds.map(async id => deleteTodo(id));
@@ -241,12 +220,14 @@ export const App: React.FC = () => {
         const hasError = res.some(item => item.status === 'rejected');
 
         if (hasError) {
-          throw new Error();
+          showError(TodoError.DeleteError);
+
+          return;
         }
       } catch {
-        showError(Erors.DeleteError);
+        showError(TodoError.DeleteError);
       } finally {
-        setDeletingTodoId(null);
+        setLoadingTodoId(null);
         focusInput();
       }
     };
@@ -261,7 +242,7 @@ export const App: React.FC = () => {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (title.trim().length === 0) {
-      showError(Erors.QueryError);
+      showError(TodoError.QueryError);
 
       return;
     }
@@ -275,7 +256,7 @@ export const App: React.FC = () => {
         setTitle('');
         clearError();
       } catch (error) {
-        showError(Erors.AddError);
+        showError(TodoError.AddError);
         setTempTodo(null);
       } finally {
         focusInput();
@@ -293,8 +274,8 @@ export const App: React.FC = () => {
 
         setTodos(todosFromServer);
         requestAnimationFrame(() => focusInput());
-      } catch (error) {
-        showError(Erors.TodosError);
+      } catch {
+        showError(TodoError.TodosError);
       }
     };
 
@@ -332,10 +313,10 @@ export const App: React.FC = () => {
             {...{
               visibleTodos,
               tempTodo,
-              deletingTodoId,
               removeTodo,
               complateTodo,
-              setDeletingTodoId,
+              loadingTodoId,
+              setLoadingTodoId,
               setTodos,
               showError,
             }}
@@ -355,7 +336,7 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      <ErrorNotification {...{ anyExistingError, clearError, loadingError }} />
+      <ErrorNotification {...{ clearError, loadingError }} />
     </div>
   );
 };

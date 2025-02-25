@@ -11,7 +11,7 @@ export enum Filter {
   Completed = 'completed',
 }
 
-export enum Erors {
+export enum TodoError {
   QueryError = 'queryError',
   AddError = 'addError',
   TodosError = 'todosError',
